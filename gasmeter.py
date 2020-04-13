@@ -49,14 +49,15 @@ def main(argv):
         cap.set(3, 1280)
         cap.set(4, 1024)
         ret, frame = cap.read()
-        cv2.release()
+        cap.release()
 
         if ret:
             reading = gas_meter_reader.process(frame)
 
-            message = {"reading": reading,
+            message = {"reading": round(float(reading), 2),
                        "timestamp": str(now)}
-            client.publish("gasmeter/reading", json.dump(message))
+            print("Publish %s" % json.dumps(message))
+            client.publish("gasmeter/reading", json.dumps(message))
         else:
             print("Unable to read frame!")
 
