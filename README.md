@@ -1,39 +1,21 @@
-# Power Meter Reader
+# Gas Meter Reader
 
-I wanted to record how much power our house is using in near real time so we can correlate with whatever activity we're doing at the time. There are [fancy devices](https://sense.com) you can get to do this in smart ways, however, they're expensive and it occurred to me that I already have a thing on my wall telling me exactly how much power I'm using.
+I started from David Padbury's [Power Meter Reader](https://github.com/davidpadbury/power-meter-reader) but made fairly extensive modifications to get it to read my gas meter. My gas company is National Grid in Newton, MA.
 
-![Power Meter](docs/images/power-meter.jpg)
+Steps:
+1. Crop down to the meaningful dials on my meter. The crop is specific to my meter and camera position.
+2. Run an aggressive normalization to squash some blacks & whites
+3. Use HoughCircles to find the dials, like the original
+4. Use Canny to do edge detection on a slightly blurred image, like the original
+5. Detect the angle of the dials by brute-force looking for the cleanest line (fewest edges) from the center to the edge of the dial. The needles are too stubby to use line detection for this purpose.
+6. Read the final dial fractionally. The final dial's integer represents 1000 cu. ft. of gas which is not a not very fine grained.
 
-With a small amount of dodgy python and a few bits of [OpenCV](https://opencv.org), it's possible to automate reading these (I've not written any python in years...).
+I kept most of the "dodgy Python" code from the upstream project because it works, and my own Python skills are not much better.
 
-Is heavily inspired an [Intel Gauge Reading Example](https://github.com/intel-iot-devkit/python-cv-samples/tree/master/examples/analog-gauge-reader).
+# Hardware
 
+I am using a nearly-antique USB webcam, with a max resolution of 1280x1024. It can't focus close enough so I attached a +6-diopter filter in front of the lens.
+For lighting, the meter is rather annoying because its case is highly reflective and slightly curved, and the needles inside are shiny black plastic as well. So reflections are a real issue. I used a pair of gooseneck USB LED lights, two of them to avoid harsh shadows. I also needed to add a baffle to prevent bad reflections from room light and a basement window.
 
-## How it works
+I attached a 4-port USB hub and the camera to a stick of wood suspended from a ceiling joist in the basement. So the whole thing is low (USB) voltage and does not actually touch the meter in any way.
 
-First we pick out the dials from the image:
-
-![Dials](docs/images/dials.jpg)
-
-For each dial we do a little edge detection:
-
-![Edge Detection](docs/images/edges.jpg)
-
-Find the most prominent edge that is very likely one side of the dial hands.
-
-![Hand Edge](docs/images/hand-edge.jpg)
-
-Then work out the point where this line intersects with the edge of the dial and use the angle between this and the center of the dial to determine its value.
-
-![Hand Reading](docs/images/hand-reading.jpg)
-
-
-## Example
-
-![Example](docs/images/example.jpg)
-
-
-```
-> python3 power-meter-reader.py examples/2.jpg
-25160
-```
