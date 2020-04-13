@@ -70,22 +70,32 @@ def main(argv):
             if ret:
                 frames.append(frame)
         cap.release()
+        print("Got %d frames" % len(frames))
 
         if frames:
             circles_list = []
             images_list = []
+            sample = 0
             for frame in frames:
-                img, circles = gas_meter_reader.get_circles(frame)
-                if len(circles) == 4:
-                    circles_list.append(circles)
+                sample += 1
+                img, circles = gas_meter_reader.get_circles(frame, sample)
+                sorted_circles = sorted(circles, key=lambda circle: circle[0])
+                print("Circles: %s" % str(sorted_circles))
+                if len(sorted_circles) == 4:
+                    circles_list.append(sorted_circles)
                     images_list.append(img)
             circles = get_medians(circles_list)
+            print("Median circles: %s" % str(circles))
             readings = []
+            sample = 0
             for image in images_list:
-                reading = gas_meter_reader.process(image, circles)
+                sample += 1
+                reading = gas_meter_reader.process(image, circles, sample)
                 if len(reading) == 5:
+                    print("Reading: %s" % str(reading))
                     readings.append(reading)
             reading = get_medians(readings)
+            print("Median reading: %s" % str(reading))
 
             output = 0.0
             power = len(reading) - 2
