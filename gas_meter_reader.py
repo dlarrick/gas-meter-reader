@@ -90,23 +90,16 @@ def find_least_covered_angle(edges, idx):
 def black_white_points(in_img):
     """Normalize & crush image to darkest/lightest pixels"""
     crush = 15
-    blackest = 255
-    whitest = 0
-    rows, cols = in_img.shape
-    for x_coord in range(cols):
-        for y_coord in range(rows):
-            black = in_img[y_coord, x_coord]
-            if black < blackest:
-                blackest = black
-            white = in_img[y_coord, x_coord]
-            if white > whitest:
-                whitest = white
+    blackest, whitest, min_loc, max_loc = cv2.minMaxLoc(in_img)
+    _ = min_loc
+    _ = max_loc
     out_img = in_img.copy()
     blackest += crush
     whitest -= crush
     offset = blackest
-    scale = 250.0 / (whitest-blackest)
-    #print("Blackest: %d, whitest: %d, scale %f" % (blackest, whitest, scale))
+    scale = 255.0 / (whitest-blackest)
+    print("Blackest: %d, whitest: %d, scale %f" % (blackest, whitest, scale))
+    rows, cols = in_img.shape
     for x_coord in range(cols):
         for y_coord in range(rows):
             newval = min(255,
@@ -134,13 +127,12 @@ def read_dial(config, idx, img):
              (int(offset_point[0]), int(offset_point[1])), (0, 255, 0), 2)
     #write_debug(offset_img, f"dial-{idx}")
 
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    if len(img.shape) == 3: # color
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = img.copy()
 
-    # Instead of norm, it might be better to crush blacks somewhat
-    #norm = cv2.equalizeHist(gray)
-    #write_debug(norm, f"norm-{idx}")
-    norm = gray.copy()
-    blurred = cv2.GaussianBlur(norm, (5, 5), 0)
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     #write_debug(blurred, f"blurred-{idx}")
 
     edges = cv2.Canny(blurred, 50, 200)
@@ -153,9 +145,13 @@ def read_dial(config, idx, img):
         math.sin(angle_r) * (origin_point[1] - center[1]) + center[0],
         math.sin(angle_r) * (origin_point[0] - center[0]) + \
         math.cos(angle_r) * (origin_point[1] - center[1]) + center[1]]
-    cv2.line(img, (int(center[0]), int(center[1])),
+    if len(img.shape) == 2: # greyscale
+        color_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    else:
+        color_img = img.copy()
+    cv2.line(color_img, (int(center[0]), int(center[1])),
              (int(angle_point[0]), int(angle_point[1])), (0, 0, 255), 2)
-    write_debug(img, f"angle-{idx}")
+    write_debug(color_img, f"angle-{idx}")
 
     if angle < 0:
         angle = 360 + angle
@@ -165,14 +161,13 @@ def read_dial(config, idx, img):
 
     return (angle, int(10*angle_p*factor))
 
-def process(original):
-    """Process a captured image"""
+def get_circles(original):
+    """Find circles in captured image"""
     clear_debug()
 
     area = [218, 20, 218+1018, 20+391] # x1, y1, x2, y2
 
     crop = original[area[1]:area[3], area[0]:area[2]].copy()
-    #crop = original.copy()
 
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
     write_debug(gray, "gray")
@@ -187,13 +182,21 @@ def process(original):
 
     circles = cv2.HoughCircles(blurred, cv2.HOUGH_GRADIENT, 1, 40,
                                np.array([]), 100, 100, 20, 300)
+    return norm, circles
+
+def process(crop, circles):
+    """Process a captured image"""
 
     dials = np.uint16(np.around(circles))[0, :]
 
     sorted_dials = sorted(dials, key=lambda dial: dial[0])
-    result = ""
+    result = []
     lastangle = 0
 
+    if len(crop.shape) == 2: # greyscale
+        color_crop = cv2.cvtColor(crop, cv2.COLOR_GRAY2BGR)
+    else:
+        color_crop = crop.copy()
     for idx, dial in enumerate(sorted_dials):
         x_pos, y_pos, radius = dial
         radius = radius + 5
@@ -201,17 +204,17 @@ def process(original):
                         x_pos-radius:x_pos+radius].copy()
         angle, value = read_dial(DIALS[idx], idx, dial_img)
         if DIALS[idx][2]:
-            result += str(value)
+            result.append(value)
             lastangle = angle
         # draw the outer circle
-        cv2.circle(crop, (x_pos, y_pos), radius, (0, 255, 0), 2)
+        cv2.circle(color_crop, (x_pos, y_pos), radius, (0, 255, 0), 2)
         # draw the center of the circle
-        cv2.circle(crop, (x_pos, y_pos), 2, (0, 0, 255), 3)
+        cv2.circle(color_crop, (x_pos, y_pos), 2, (0, 0, 255), 3)
 
-    write_debug(crop, "circles")
+    write_debug(color_crop, "circles")
 
     remainder = (lastangle/360.0)*10 - value
-    result += str(remainder)[1:]
+    result.append(remainder)
     return result
 
 def main(argv):
@@ -226,9 +229,15 @@ def main(argv):
 
     original = cv2.imread(filename)
 
-    result = process(original)
+    crop, circles = get_circles(original)
+    result = process(crop, circles)
+    output = 0.0
+    power = len(result) - 2
+    for res in result:
+        output += res * 10**power
+        power = max(0, power-1)
 
-    print("%s" % result)
+    print("%f" % output)
 
 if __name__ == '__main__':
     main(sys.argv[1:])

@@ -5,10 +5,12 @@ import json
 from datetime import datetime
 from datetime import timedelta
 import time
+import statistics
 import paho.mqtt.client as mqttClient
 import cv2
 import gas_meter_reader
 
+CONNECTED = False # MQTT connected
 
 def on_connect(client, userdata, flags, code):
     """Connect completion for Paho"""
@@ -22,7 +24,20 @@ def on_connect(client, userdata, flags, code):
     else:
         print("Connection failed")
 
-CONNECTED = False # MQTT connected
+def get_medians(in_vals):
+    """Compute median of each column in a 2D array"""
+    # Note: independent medians for now
+    val_size = len(in_vals[0])
+    vals = []
+    for column in range(val_size):
+        vals.append([])
+    for val in in_vals:
+        for column in range(val_size):
+            vals[column].append(val[column])
+    result = []
+    for column in vals:
+        result.append(statistics.median(column))
+    return result
 
 def main(argv):
     """Entry point"""
@@ -42,24 +57,48 @@ def main(argv):
         time.sleep(0.1)
 
     while True:
+        frames = []
         now = datetime.now()
         next_time = now + timedelta(minutes=5)
 
         cap = cv2.VideoCapture(0)
         cap.set(3, 1280)
         cap.set(4, 1024)
-        ret, frame = cap.read()
+        for reading in range(5):
+            _ = reading
+            ret, frame = cap.read()
+            if ret:
+                frames.append(frame)
         cap.release()
 
-        if ret:
-            reading = gas_meter_reader.process(frame)
+        if frames:
+            circles_list = []
+            images_list = []
+            for frame in frames:
+                img, circles = gas_meter_reader.get_circles(frame)
+                if len(circles) == 4:
+                    circles_list.append(circles)
+                    images_list.append(img)
+            circles = get_medians(circles_list)
+            readings = []
+            for image in images_list:
+                reading = gas_meter_reader.process(image, circles)
+                if len(reading) == 5:
+                    readings.append(reading)
+            reading = get_medians(readings)
 
-            message = {"reading": round(float(reading), 2),
+            output = 0.0
+            power = len(reading) - 2
+            for res in reading:
+                output += res * 10**power
+                power = max(0, power-1)
+
+            message = {"reading": round(float(output), 2),
                        "timestamp": str(now)}
             print("Publish %s" % json.dumps(message))
             client.publish("gasmeter/reading", json.dumps(message))
         else:
-            print("Unable to read frame!")
+            print("Unable to read frames!")
 
         while datetime.now() < next_time:
             time.sleep(10)

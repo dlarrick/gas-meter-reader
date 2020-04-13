@@ -19,3 +19,9 @@ For lighting, the meter is rather annoying because its case is highly reflective
 
 I attached a 4-port USB hub and the camera to a stick of wood suspended from a ceiling joist in the basement. So the whole thing is low (USB) voltage and does not actually touch the meter in any way.
 
+# data errors
+Anecdotally, the occasional errors seem to be down to the size & position of the detected circles. So, do some things to combat:
+1. Take a number of consecutive frames prior to analysis (5)
+1. Compute the median of the x, y, and radius values of detected circles
+1. Use that center & radius for analysis of all frames
+1. Take the median of each digit (and the fraction) as computed for each frame
