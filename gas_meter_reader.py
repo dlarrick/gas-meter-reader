@@ -100,12 +100,11 @@ def black_white_points(in_img):
     offset = blackest
     scale = 255.0 / (whitest-blackest)
     #print("Blackest: %d, whitest: %d, scale %f" % (blackest, whitest, scale))
-    rows, cols = in_img.shape
-    for x_coord in range(cols):
-        for y_coord in range(rows):
-            newval = min(255,
-                         max(0, (in_img[y_coord, x_coord] - offset) * scale))
-            out_img[y_coord, x_coord] = newval
+
+    # dst = src1*alpha + src2*beta + gamma;
+    # dst = cv.addWeighted(src1, alpha, src2, beta, gamma[, dst[, dtype]])
+    out_img = cv2.addWeighted(in_img, scale, in_img, 0, -offset)
+
     return out_img
 
 def read_dial(config, idx, img, sample):
