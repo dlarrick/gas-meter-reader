@@ -104,7 +104,7 @@ def main(argv):
                 output += res * 10**power
                 power = max(0, power-1)
 
-            message = {"reading": round(float(output), 2),
+            message = {"reading": round(float(output), 1),
                        "timestamp": str(now)}
             print("Publish %s" % json.dumps(message))
             client.publish("gasmeter/reading", json.dumps(message))
