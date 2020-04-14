@@ -72,6 +72,7 @@ def main(argv):
         cap.release()
         print("Got %d frames" % len(frames))
 
+        gas_meter_reader.clear_debug()
         if frames:
             circles_list = []
             images_list = []

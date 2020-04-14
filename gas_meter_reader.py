@@ -56,6 +56,7 @@ def find_least_covered_angle(edges, idx, sample):
                (255, 255, 255), 20)
     mask = cv2.bitwise_not(mask)
     trimmed = cv2.bitwise_and(edges, edges, mask=mask)
+    #trimmed = edges.copy()
     write_debug(trimmed, f"trimmed-{idx}", sample)
     for angle in range(0, 360, step):
         angle_r = angle * (np.pi / 180)
@@ -132,13 +133,14 @@ def read_dial(config, idx, img, sample):
     else:
         gray = img.copy()
 
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    #blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     #write_debug(blurred, f"blurred-{idx}", sample)
 
-    edges = cv2.Canny(blurred, 50, 200)
-    write_debug(edges, f"edges-{idx}", sample)
+    #edges = cv2.Canny(blurred, 50, 200)
+    ret, thresh = cv2.threshold(gray, 90, 255, cv2.THRESH_BINARY)
+    write_debug(thresh, f"thresh-{idx}", sample)
 
-    angle = find_least_covered_angle(edges, idx, sample)
+    angle = find_least_covered_angle(thresh, idx, sample)
     angle_r = angle * (np.pi / 180)
     angle_point = [
         math.cos(angle_r) * (origin_point[0] - center[0]) - \
@@ -163,8 +165,6 @@ def read_dial(config, idx, img, sample):
 
 def get_circles(original, sample):
     """Find circles in captured image"""
-    clear_debug()
-
     write_debug(original, "frame", sample)
 
     area = [218, 20, 218+1018, 20+391] # x1, y1, x2, y2
