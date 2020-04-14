@@ -99,7 +99,7 @@ def black_white_points(in_img):
     whitest -= crush
     offset = blackest
     scale = 255.0 / (whitest-blackest)
-    print("Blackest: %d, whitest: %d, scale %f" % (blackest, whitest, scale))
+    #print("Blackest: %d, whitest: %d, scale %f" % (blackest, whitest, scale))
     rows, cols = in_img.shape
     for x_coord in range(cols):
         for y_coord in range(rows):

@@ -81,7 +81,7 @@ def main(argv):
                 sample += 1
                 img, circles = gas_meter_reader.get_circles(frame, sample)
                 sorted_circles = sorted(circles, key=lambda circle: circle[0])
-                print("Circles: %s" % str(sorted_circles))
+                #print("Circles: %s" % str(sorted_circles))
                 if len(sorted_circles) == 4:
                     circles_list.append(sorted_circles)
                     images_list.append(img)

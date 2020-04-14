@@ -26,4 +26,5 @@ Anecdotally, the occasional errors seem to be down to the size & position of the
 1. Use that center & radius for analysis of all frames
 1. Take the median of each digit (and the fraction) as computed for each frame
 
-# Medians have helped, but I am still getting some errors. I think I need to abandon using Canny, and instead threshold the meter image and look for the angle with the least number of bright pixels along the line.
+Medians have helped, but I am still getting some errors. I think I need to abandon using Canny, and instead threshold the meter image and look for the angle with the least number of bright pixels along the line.
+-> So far this seems to be working better.
