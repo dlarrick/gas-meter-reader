@@ -185,8 +185,9 @@ def get_circles(original, sample):
 
     circles = cv2.HoughCircles(blurred, cv2.HOUGH_GRADIENT, 1, 40,
                                np.array([]), 100, 100, 20, 300)
-    circles = circles.tolist()[0]
-    return norm, circles
+    if circles is not None:
+        circles = circles.tolist()[0]
+        return norm, circles
 
 def process(crop, circles, sample):
     """Process a captured image"""

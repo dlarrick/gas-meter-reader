@@ -80,11 +80,16 @@ def main(argv):
             for frame in frames:
                 sample += 1
                 img, circles = gas_meter_reader.get_circles(frame, sample)
+                if circles is None:
+                    continue
                 sorted_circles = sorted(circles, key=lambda circle: circle[0])
                 #print("Circles: %s" % str(sorted_circles))
                 if len(sorted_circles) == 4:
                     circles_list.append(sorted_circles)
                     images_list.append(img)
+            if not circles_list:
+                print("Could not get any circles!")
+                continue
             circles = get_medians(circles_list)
             print("Median circles: %s" % str(circles))
             readings = []
