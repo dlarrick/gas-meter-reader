@@ -107,9 +107,15 @@ def black_white_points(in_img):
 
     return out_img
 
-def read_dial(config, idx, img, sample):
+def read_dial(config, idx, img, sample, prev_value):
     """Read one dial"""
     offset, clockwise, factor = config
+    if prev_value:
+        # Bias dial from next less-significant digit
+        prev_factor = 3.6 * prev_value
+        if clockwise:
+            prev_factor = 0 - prev_factor
+        offset += prev_factor
     offset_r = offset * (np.pi / 180)
 
     height, width = img.shape[:2]
@@ -125,7 +131,7 @@ def read_dial(config, idx, img, sample):
     ]
     cv2.line(offset_img, (int(center[0]), int(center[1])),
              (int(offset_point[0]), int(offset_point[1])), (0, 255, 0), 2)
-    #write_debug(offset_img, f"dial-{idx}", sample)
+    write_debug(offset_img, f"dial-{idx}", sample)
 
     if len(img.shape) == 3: # color
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -184,26 +190,29 @@ def get_circles(original, sample):
 
 def process(crop, circles, sample):
     """Process a captured image"""
-
+    prev_value = None
     dials = np.uint16(np.around(circles))
 
     sorted_dials = sorted(dials, key=lambda dial: dial[0])
     result = []
-    lastangle = 0
+    firstangle = None
 
     if len(crop.shape) == 2: # greyscale
         color_crop = cv2.cvtColor(crop, cv2.COLOR_GRAY2BGR)
     else:
         color_crop = crop.copy()
-    for idx, dial in enumerate(sorted_dials):
+    for idx, dial in reversed(list(enumerate(sorted_dials))):
         x_pos, y_pos, radius = dial
         radius = radius + 5
         dial_img = crop[y_pos-radius:y_pos+radius,
                         x_pos-radius:x_pos+radius].copy()
-        angle, value = read_dial(DIALS[idx], idx, dial_img, sample)
+        angle, value = read_dial(DIALS[idx], idx, dial_img, sample, prev_value)
         if DIALS[idx][2]:
             result.append(value)
-            lastangle = angle
+            if not firstangle:
+                firstangle = angle
+                firstvalue = value
+            prev_value = value
         # draw the outer circle
         cv2.circle(color_crop, (x_pos, y_pos), radius, (0, 255, 0), 2)
         # draw the center of the circle
@@ -211,7 +220,8 @@ def process(crop, circles, sample):
 
     write_debug(color_crop, "circles", sample)
 
-    remainder = (lastangle/360.0)*10 - value
+    remainder = (firstangle/360.0)*10 - firstvalue
+    result.reverse()
     result.append(remainder)
     return result
 
