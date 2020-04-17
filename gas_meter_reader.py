@@ -188,7 +188,7 @@ def get_circles(original, sample):
                                np.array([]), 100, 100, 20, 300)
     if circles is not None:
         circles = circles.tolist()[0]
-        return norm, circles
+    return norm, circles
 
 def process(crop, circles, sample):
     """Process a captured image"""
@@ -227,6 +227,15 @@ def process(crop, circles, sample):
     result.append(remainder)
     return result
 
+def assemble_reading(result):
+    """Assemble dial readings into a numeric result"""
+    output = 0.0
+    power = len(result) - 2
+    for res in result:
+        output += res * 10**power
+        power = max(0, power-1)
+    return output
+
 def main(argv):
     """Command line entry point"""
     clear_debug()
@@ -241,11 +250,7 @@ def main(argv):
 
     crop, circles = get_circles(original, 0)
     result = process(crop, circles, 0)
-    output = 0.0
-    power = len(result) - 2
-    for res in result:
-        output += res * 10**power
-        power = max(0, power-1)
+    output = assemble_reading(result)
 
     print("%f" % output)
 
