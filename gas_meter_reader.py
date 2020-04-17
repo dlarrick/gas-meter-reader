@@ -58,7 +58,8 @@ def find_least_covered_angle(edges, idx, sample):
     trimmed = cv2.bitwise_and(edges, edges, mask=mask)
     #trimmed = edges.copy()
     write_debug(trimmed, f"trimmed-{idx}", sample)
-    for angle in range(0, 360, step):
+    for partangle in range(0, 1440, step):
+        angle = partangle / 4.0
         angle_r = angle * (np.pi / 180)
 
         origin_point = [center[0], 0]

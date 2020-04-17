@@ -24,7 +24,7 @@ def on_connect(client, userdata, flags, code):
     else:
         print("Connection failed")
 
-def get_medians(in_vals):
+def get_central_measures(in_vals, measure):
     """Compute median of each column in a 2D array"""
     # Note: independent medians for now
     val_size = len(in_vals[0])
@@ -36,7 +36,10 @@ def get_medians(in_vals):
             vals[column].append(val[column])
     result = []
     for column in vals:
-        result.append(statistics.median(column))
+        if measure == 'median':
+            result.append(statistics.median(column))
+        else if measure == 'mean':
+            result.append(statistics.mean(column))
     return result
 
 def main(argv):
@@ -64,7 +67,7 @@ def main(argv):
         cap = cv2.VideoCapture(0)
         cap.set(3, 1280)
         cap.set(4, 1024)
-        for reading in range(5):
+        for reading in range(10):
             _ = reading
             ret, frame = cap.read()
             if ret:
@@ -90,7 +93,7 @@ def main(argv):
             if not circles_list:
                 print("Could not get any circles!")
                 continue
-            circles = get_medians(circles_list)
+            circles = get_central_measures(circles_list, 'median')
             print("Median circles: %s" % str(circles))
             readings = []
             sample = 0
@@ -100,7 +103,7 @@ def main(argv):
                 if len(reading) == 5:
                     print("Reading: %s" % str(reading))
                     readings.append(reading)
-            reading = get_medians(readings)
+            reading = get_central_measures(readings, 'mean')
             print("Median reading: %s" % str(reading))
 
             output = 0.0
