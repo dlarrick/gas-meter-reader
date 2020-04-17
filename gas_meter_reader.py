@@ -112,7 +112,7 @@ def read_dial(config, idx, img, sample, prev_value):
     offset, clockwise, factor = config
     if prev_value:
         # Bias dial from next less-significant digit
-        prev_factor = 3.6 * prev_value
+        prev_factor = 3.6 * (prev_value - 5)
         if clockwise:
             prev_factor = 0 - prev_factor
         offset += prev_factor
@@ -142,10 +142,10 @@ def read_dial(config, idx, img, sample, prev_value):
     #write_debug(blurred, f"blurred-{idx}", sample)
 
     #edges = cv2.Canny(blurred, 50, 200)
-    ret, thresh = cv2.threshold(gray, 90, 255, cv2.THRESH_BINARY)
+    ret, thresh = cv2.threshold(gray, 70, 255, cv2.THRESH_BINARY)
     write_debug(thresh, f"thresh-{idx}", sample)
 
-    angle = find_least_covered_angle(thresh, idx, sample)
+    angle = find_least_covered_angle(thresh, idx, sample) + offset
     angle_r = angle * (np.pi / 180)
     angle_point = [
         math.cos(angle_r) * (origin_point[0] - center[0]) - \
