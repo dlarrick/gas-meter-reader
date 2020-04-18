@@ -7,6 +7,7 @@ from datetime import datetime
 from datetime import timedelta
 import time
 import statistics
+import collections
 import paho.mqtt.client as mqttClient
 import cv2
 import gas_meter_reader
@@ -25,8 +26,8 @@ def on_connect(client, userdata, flags, code):
     else:
         print("Connection failed")
 
-def get_median_circles(in_vals):
-    """Compute median of each column of circles in a list
+def get_average_circles(in_vals, mean=False):
+    """Compute median or mean of each column of circles in a list
     of columns of circles"""
     val_size = len(in_vals[0])
     columns = []
@@ -44,16 +45,21 @@ def get_median_circles(in_vals):
             x_coords.append(circle[0])
             y_coords.append(circle[1])
             radii.append(circle[2])
-        x_median = statistics.median(x_coords)
-        y_median = statistics.median(y_coords)
-        radius_median = statistics.median(radii)
-        result.append([x_median, y_median, radius_median])
+        if mean:
+            x_average = statistics.mean(x_coords)
+            y_average = statistics.mean(y_coords)
+            radius_average = statistics.mean(radii)
+        else:
+            x_average = statistics.median(x_coords)
+            y_average = statistics.median(y_coords)
+            radius_average = statistics.median(radii)
+        result.append([x_average, y_average, radius_average])
 
     return result
 
 def publish_result(client, reading, last_reading, now):
     """Write result to MQTT or save debug output"""
-    if last_reading and abs(last_reading - reading) > last_reading * 0.01:
+    if last_reading and abs(last_reading - reading) > 1.0:
         bad_reading = str(round(float(reading), 1))
         print("Rejecting bad reading %s" % bad_reading)
         if os.path.isdir('output'):
@@ -66,9 +72,8 @@ def publish_result(client, reading, last_reading, now):
     client.publish("gasmeter/reading", json.dumps(message))
     return True
 
-def main(argv):
-    """Entry point"""
-    _ = argv
+def connect_mqtt():
+    """Connect to MQTT"""
     global CONNECTED
 
     broker_address = "localhost"
@@ -82,22 +87,39 @@ def main(argv):
 
     while not CONNECTED:
         time.sleep(0.1)
+    return client
+
+def get_frames(num_frames):
+    """Get the number of video frames specified"""
+    frames = []
+    cap = cv2.VideoCapture(0)
+    cap.set(3, 1280)
+    cap.set(4, 1024)
+    for reading in range(num_frames):
+        _ = reading
+        ret, frame = cap.read()
+        if ret:
+            frames.append(frame)
+    cap.release()
+    return frames
+
+def main(argv):
+    """Entry point"""
+    _ = argv
+
+    client = connect_mqtt()
 
     last_reading = None
+    # at 5 minute readings, that's an hour
+    circle_history = collections.deque(maxlen=12)
+    last_time = datetime.now()
+    next_time = last_time
     while True:
-        frames = []
-        now = datetime.now()
-        next_time = now + timedelta(minutes=5)
+        now = next_time
+        next_time = last_time + timedelta(minutes=5)
+        last_time = now
 
-        cap = cv2.VideoCapture(0)
-        cap.set(3, 1280)
-        cap.set(4, 1024)
-        for reading in range(10):
-            _ = reading
-            ret, frame = cap.read()
-            if ret:
-                frames.append(frame)
-        cap.release()
+        frames = get_frames(10)
         print("Got %d frames" % len(frames))
 
         gas_meter_reader.clear_debug()
@@ -118,8 +140,11 @@ def main(argv):
             if not circles_list:
                 print("Could not get any circles!")
                 continue
-            circles = get_median_circles(circles_list)
+            circles = get_average_circles(circles_list)
             print("Median circles: %s" % str(circles))
+            circle_history.append(circles)
+            circles = get_average_circles(circle_history, mean=True)
+            print("Mean history circles: %s" % str(circles))
             readings = []
             sample = 0
             for image in images_list:
@@ -138,7 +163,7 @@ def main(argv):
             print("Unable to read frames!")
 
         while datetime.now() < next_time:
-            time.sleep(10)
+            time.sleep(max(1, (next_time - datetime.now())/2))
 
 if __name__ == '__main__':
     main(sys.argv[1:])
