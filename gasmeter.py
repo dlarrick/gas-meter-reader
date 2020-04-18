@@ -103,6 +103,26 @@ def get_frames(num_frames):
     cap.release()
     return frames
 
+def get_circles(frames):
+    """Get circles from the frames"""
+    circles_list = []
+    images_list = []
+    for sample, frame in enumerate(frames):
+        img, circles = gas_meter_reader.get_circles(frame, sample)
+        if circles is None:
+            continue
+        sorted_circles = sorted(circles, key=lambda circle: circle[0])
+        #print("Circles: %s" % str(sorted_circles))
+        if len(sorted_circles) == 4:
+            circles_list.append(sorted_circles)
+            images_list.append(img)
+    if not circles_list:
+        print("Could not get any circles!")
+        circles = None
+    else:
+        circles = get_average_circles(circles_list)
+    return (circles, images_list)
+
 def main(argv):
     """Entry point"""
     _ = argv
@@ -112,43 +132,24 @@ def main(argv):
     last_reading = None
     # at 5 minute readings, that's an hour
     circle_history = collections.deque(maxlen=12)
-    last_time = datetime.now()
-    next_time = last_time
     while True:
-        now = next_time
-        next_time = last_time + timedelta(minutes=5)
-        last_time = now
+        now = datetime.now()
+        next_time = now + timedelta(minutes=5)
 
         frames = get_frames(10)
         print("Got %d frames" % len(frames))
 
         gas_meter_reader.clear_debug()
         if frames:
-            circles_list = []
-            images_list = []
-            sample = 0
-            for frame in frames:
-                sample += 1
-                img, circles = gas_meter_reader.get_circles(frame, sample)
-                if circles is None:
-                    continue
-                sorted_circles = sorted(circles, key=lambda circle: circle[0])
-                #print("Circles: %s" % str(sorted_circles))
-                if len(sorted_circles) == 4:
-                    circles_list.append(sorted_circles)
-                    images_list.append(img)
-            if not circles_list:
-                print("Could not get any circles!")
+            circles, images_list = get_circles(frames)
+            if not circles:
                 continue
-            circles = get_average_circles(circles_list)
-            print("Median circles: %s" % str(circles))
+            #print("Median circles: %s" % str(circles))
             circle_history.append(circles)
             circles = get_average_circles(circle_history, mean=True)
             print("Mean history circles: %s" % str(circles))
             readings = []
-            sample = 0
-            for image in images_list:
-                sample += 1
+            for sample, image in enumerate(images_list):
                 reading = gas_meter_reader.process(image, circles, sample)
                 if len(reading) == 5:
                     print("Reading: %s" % str(reading))
@@ -163,7 +164,8 @@ def main(argv):
             print("Unable to read frames!")
 
         while datetime.now() < next_time:
-            time.sleep(max(1, (next_time - datetime.now())/2))
+            time.sleep(max(timedelta(seconds=0.21),
+                           (next_time - datetime.now())/2))
 
 if __name__ == '__main__':
     main(sys.argv[1:])
