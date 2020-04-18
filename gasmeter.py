@@ -164,8 +164,8 @@ def main(argv):
             print("Unable to read frames!")
 
         while datetime.now() < next_time:
-            time.sleep(max(timedelta(seconds=0.21),
-                           (next_time - datetime.now())/2))
+            time.sleep(max(timedelta(seconds=0.1),
+                           (next_time - datetime.now())/2).total_seconds())
 
 if __name__ == '__main__':
     main(sys.argv[1:])
