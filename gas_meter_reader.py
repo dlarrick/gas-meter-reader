@@ -48,18 +48,19 @@ def find_least_covered_angle(edges, idx, sample):
     least_angle = None
     streak = 0
     step = 1
+    parts = 4.0
     deb = -1
 
     # Remove the border, often noisy
-    mask = np.zeros((height, width, 1), np.uint8)
-    cv2.circle(mask, (int(center[0]), int(center[1])), radius,
-               (255, 255, 255), 20)
-    mask = cv2.bitwise_not(mask)
-    trimmed = cv2.bitwise_and(edges, edges, mask=mask)
-    #trimmed = edges.copy()
-    write_debug(trimmed, f"trimmed-{idx}", sample)
+    #mask = np.zeros((height, width, 1), np.uint8)
+    #cv2.circle(mask, (int(center[0]), int(center[1])), radius,
+    #           (255, 255, 255), 20)
+    #mask = cv2.bitwise_not(mask)
+    #trimmed = cv2.bitwise_and(edges, edges, mask=mask)
+    trimmed = edges.copy()
+    #write_debug(trimmed, f"trimmed-{idx}", sample)
     for partangle in range(0, 1440, step):
-        angle = partangle / 4.0
+        angle = partangle / parts
         angle_r = angle * (np.pi / 180)
 
         origin_point = [center[0], 0]
@@ -81,9 +82,16 @@ def find_least_covered_angle(edges, idx, sample):
         if count < least_count:
             least_count = count
             least_angle = angle
+            streak = 1
+            if deb == idx:
+                print("first least_count %d, least_angle %s" %
+                      (least_count, str(least_angle)))
         elif count == least_count:
             streak = streak + 1
-            least_angle = int((2 * angle - (streak * step)) / 2)
+            least_angle = (2 * angle - ((streak-1) * step)/parts) / 2
+            if deb == idx:
+                print("streak=%s least_count %d, angle=%s, least_angle %s" %
+                      (streak, least_count, str(angle), str(least_angle)))
         else:
             streak = 1
 
@@ -143,7 +151,7 @@ def read_dial(config, idx, img, sample, prev_value):
     #write_debug(blurred, f"blurred-{idx}", sample)
 
     #edges = cv2.Canny(blurred, 50, 200)
-    ret, thresh = cv2.threshold(gray, 70, 255, cv2.THRESH_BINARY)
+    ret, thresh = cv2.threshold(gray, 80, 255, cv2.THRESH_BINARY)
     write_debug(thresh, f"thresh-{idx}", sample)
 
     angle = find_least_covered_angle(thresh, idx, sample) + offset
