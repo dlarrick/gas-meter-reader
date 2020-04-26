@@ -13,6 +13,7 @@ import cv2
 import gas_meter_reader
 
 CONNECTED = False # MQTT connected
+RANGEFILE = 'expected_range.json'
 
 def on_connect(client, userdata, flags, code):
     """Connect completion for Paho"""
@@ -57,20 +58,51 @@ def get_average_circles(in_vals, mean=False):
 
     return result
 
+def read_rangefile(filename):
+    """ Read range from file, if present"""
+    try:
+        rangefile = open(filename)
+        expected_range = json.load(rangefile)
+        rangefile.close()
+    except IOError:
+        expected_range = None
+    return expected_range
+
+def adjust_range(expected_range, reading):
+    """Adjust reading to be in range, and compute new range if needed"""
+    if expected_range:
+        delta = expected_range[1] - expected_range[0]
+        while reading > expected_range[1]:
+            reading = reading - delta
+            print("Adjust downward to %s" % str(reading))
+        while reading < expected_range[0]:
+            reading = reading + delta
+            print("Adjust upward to %s" % str(reading))
+    mid = round(reading/500.0) * 500.0
+    new_range = [mid - 1000, mid + 1000]
+    return (new_range, reading)
+
 def publish_result(client, reading, last_reading, now):
     """Write result to MQTT or save debug output"""
-    if last_reading and abs(last_reading - reading) > 1.0:
-        bad_reading = str(round(float(reading), 1))
+    # Round to nearest 0.2
+    rounded = round(reading * 5.0) / 5.0
+    if last_reading and abs(last_reading - rounded) > 1.0:
+        bad_reading = str(round(float(rounded), 1))
         print("Rejecting bad reading %s" % bad_reading)
-        if os.path.isdir('output'):
-            os.rename('output', 'output-%s' % bad_reading)
+        debdir = 'output-%s' % bad_reading
+        if os.path.isdir('output') and not os.path.isdir(debdir):
+            os.rename('output', debdir)
             os.mkdir('output')
-        return False
-    message = {"reading": round(float(reading), 1),
+        rounded = last_reading
+    if last_reading and rounded < last_reading:
+        print("Reusing last higher reading %s > %s" %
+              (str(last_reading), str(rounded)))
+        rounded = last_reading
+    message = {"reading": rounded,
                "timestamp": str(now)}
     print("Publish %s" % json.dumps(message))
     client.publish("gasmeter/reading", json.dumps(message))
-    return True
+    return rounded
 
 def connect_mqtt():
     """Connect to MQTT"""
@@ -129,6 +161,8 @@ def main(argv):
 
     client = connect_mqtt()
 
+    expected_range = read_rangefile(RANGEFILE)
+
     last_reading = None
     # at 5 minute readings, that's an hour
     circle_history = collections.deque(maxlen=12)
@@ -158,8 +192,13 @@ def main(argv):
             reading = statistics.mean(readings)
             print("Mean reading: %s" % str(reading))
 
-            if publish_result(client, reading, last_reading, now):
-                last_reading = reading
+            new_expected_range, reading = adjust_range(expected_range, reading)
+            if new_expected_range != expected_range:
+                expected_range = new_expected_range
+                with open(RANGEFILE, 'w') as rangefile:
+                    json.dump(expected_range, rangefile)
+
+            last_reading = publish_result(client, reading, last_reading, now)
         else:
             print("Unable to read frames!")
 
